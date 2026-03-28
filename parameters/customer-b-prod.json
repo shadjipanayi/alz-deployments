@@ -1,0 +1,133 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "template": "../bicep/main.bicep",
+    "customer": "Northwind Financial Services plc",
+    "customerCode": "nwfn",
+    "environment": "Production",
+    "engagement": "ENG-2026-0207 - Regulated core banking platform migration",
+    "targetSubscriptionId": "b85f0c27-3d94-4a68-8e12-6c9a4b7f2d31",
+    "owner": "Delivery Manager",
+    "reviewedBy": "Principal Azure Architect, Database Migration Lead, Cloud Security Lead, Governance and Compliance Manager",
+    "lastReviewed": "2026-09-24",
+    "changeRequest": "CR-0031",
+    "customerApproval": "Northwind Technology Change Board, reference TCB-2026-0731, approved 2026-07-31",
+    "maintenanceWindow": "Sunday 01:00 to Sunday 05:00 Europe/London",
+    "freezeWindows": "Month end, last two working days of each calendar month; regulatory reporting window, 1 to 10 January and 1 to 10 July",
+    "notes": "Production landing zone for a regulated core banking workload. Data residency is restricted to the United Kingdom by contract and by the FCA operational resilience requirements. Business Critical tier with zone redundancy provides the contracted 99.99 percent availability and read-scale replica for regulatory reporting. Seven-year retention satisfies the customer records obligation."
+  },
+  "parameters": {
+    "customerCode": { "value": "nwfn" },
+    "customerName": { "value": "Northwind Financial Services plc" },
+    "environment": { "value": "prd" },
+    "workloadName": { "value": "core" },
+    "location": { "value": "uksouth" },
+    "costCentre": { "value": "CC-77302" },
+    "ownerEmail": { "value": "cloud.engineering@northwind-financial.example" },
+    "dataClassification": { "value": "Restricted" },
+    "additionalTags": {
+      "value": {
+        "Engagement": "ENG-2026-0207",
+        "MigrationWave": "wave-1-6",
+        "BusinessUnit": "Technology Services",
+        "ServiceLevel": "Platinum",
+        "DisasterRecoveryTier": "Tier-1",
+        "RegulatoryScope": "FCA-SYSC-8",
+        "DataSubjectRights": "In-scope"
+      }
+    },
+
+    "changeRequestId": { "value": "CR-0031" },
+    "sourceRepository": { "value": "example-partner/alz-deployments" },
+
+    "virtualNetworkAddressPrefix": { "value": "10.30.0.0/16" },
+    "applicationSubnetPrefix": { "value": "10.30.1.0/24" },
+    "dataSubnetPrefix": { "value": "10.30.2.0/24" },
+    "sqlManagedInstanceSubnetPrefix": { "value": "10.30.3.0/24" },
+    "privateEndpointSubnetPrefix": { "value": "10.30.4.0/24" },
+    "deployBastionSubnet": { "value": true },
+    "bastionSubnetPrefix": { "value": "10.30.250.0/26" },
+    "customDnsServers": {
+      "value": [
+        "10.30.1.20",
+        "10.30.1.21"
+      ]
+    },
+    "hubVirtualNetworkResourceId": {
+      "value": "/subscriptions/b85f0c27-3d94-4a68-8e12-6c9a4b7f2d31/resourceGroups/rg-nwfn-connectivity-prd-uks/providers/Microsoft.Network/virtualNetworks/vnet-nwfn-hub-prd-uks-001"
+    },
+    "routeThroughHubAppliance": { "value": true },
+    "nextHopApplianceIpAddress": { "value": "10.1.1.4" },
+
+    "keyVaultName": { "value": "" },
+    "keyVaultSku": { "value": "premium" },
+    "deployKeyVaultPrivateEndpoint": { "value": true },
+    "keyVaultPrivateDnsZoneId": {
+      "value": "/subscriptions/b85f0c27-3d94-4a68-8e12-6c9a4b7f2d31/resourceGroups/rg-nwfn-connectivity-prd-uks/providers/Microsoft.Network/privateDnsZones/privatelink.vaultcore.azure.net"
+    },
+    "platformAdministratorGroupObjectId": { "value": "a0f3b8d5-71c2-4e69-9d04-3b85f6c21e47" },
+    "databaseAdministratorGroupObjectId": { "value": "58e1c706-9b4d-4f83-a27e-6d09b1f4c385" },
+    "auditorGroupObjectId": { "value": "d47a2e91-0c65-4b38-92f1-8a7e5c04b963" },
+
+    "logRetentionInDays": { "value": 730 },
+    "dailyQuotaInGb": { "value": -1 },
+    "alertEmailAddress": { "value": "platform-operations@northwind-financial.example" },
+    "backupStorageRedundancy": { "value": "GeoRedundant" },
+    "backupTimeZone": { "value": "GMT Standard Time" },
+    "backupScheduleTimeUtc": { "value": "2026-01-01T23:00:00Z" },
+    "dailyRetentionInDays": { "value": 35 },
+    "weeklyRetentionInWeeks": { "value": 26 },
+    "monthlyRetentionInMonths": { "value": 36 },
+    "yearlyRetentionInYears": { "value": 7 },
+    "deploySqlBackupPolicy": { "value": true },
+
+    "deployGovernance": { "value": true },
+    "allowedLocations": {
+      "value": [
+        "uksouth",
+        "ukwest"
+      ]
+    },
+    "policyEnforcementMode": { "value": "Default" },
+    "policyExcludedResourceGroupNames": { "value": [] },
+
+    "deploySqlManagedInstance": { "value": true },
+    "sqlManagedInstanceName": { "value": "sqlmi-nwfn-core-prd-uks" },
+    "sqlAdministratorLogin": { "value": "nwfncoreadmin" },
+    "sqlAdministratorPassword": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/b85f0c27-3d94-4a68-8e12-6c9a4b7f2d31/resourceGroups/rg-nwfn-bootstrap/providers/Microsoft.KeyVault/vaults/kv-nwfn-bootstrap-prd"
+        },
+        "secretName": "sqlmi-admin-password-prd"
+      }
+    },
+    "sqlServiceTier": { "value": "BusinessCritical" },
+    "sqlSkuName": { "value": "BC_Gen5" },
+    "sqlVCores": { "value": 32 },
+    "sqlStorageSizeInGB": { "value": 2048 },
+    "sqlLicenseType": { "value": "BasePrice" },
+    "sqlCollation": { "value": "Latin1_General_CI_AS" },
+    "sqlTimezoneId": { "value": "GMT Standard Time" },
+    "sqlBackupStorageRedundancy": { "value": "Geo" },
+    "sqlZoneRedundant": { "value": true },
+    "sqlEntraAdministratorName": { "value": "sg-northwind-sqlmi-admins" },
+    "sqlEntraAdministratorObjectId": { "value": "58e1c706-9b4d-4f83-a27e-6d09b1f4c385" },
+    "sqlEntraOnlyAuthentication": { "value": false },
+    "sqlShortTermRetentionInDays": { "value": 35 },
+    "sqlLongTermWeeklyRetention": { "value": "P26W" },
+    "sqlLongTermMonthlyRetention": { "value": "P36M" },
+    "sqlLongTermYearlyRetention": { "value": "P7Y" },
+    "sqlDatabases": {
+      "value": [
+        { "name": "NorthwindPayments", "collation": "Latin1_General_CI_AS" },
+        { "name": "NorthwindCustomerMaster", "collation": "Latin1_General_CI_AS" },
+        { "name": "NorthwindRegulatoryReporting", "collation": "Latin1_General_CI_AS" },
+        { "name": "NorthwindCardServices", "collation": "Latin1_General_CI_AS" },
+        { "name": "NorthwindTreasury", "collation": "Latin1_General_CI_AS" },
+        { "name": "NorthwindAudit", "collation": "Latin1_General_CI_AS" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,131 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "template": "../bicep/main.bicep",
+    "customer": "Contoso Manufacturing Ltd",
+    "customerCode": "ctso",
+    "environment": "Production",
+    "engagement": "ENG-2026-0114 - UK datacentre exit, wave 1-4",
+    "targetSubscriptionId": "9c4e7a15-2b83-4f60-a7d1-5e8b0c2f3a96",
+    "owner": "Delivery Manager",
+    "reviewedBy": "Principal Azure Architect, Database Migration Lead, Cloud Security Lead",
+    "lastReviewed": "2026-09-22",
+    "changeRequest": "CR-0030",
+    "customerApproval": "Contoso Change Advisory Board, reference CAB-2026-0418, approved 2026-04-18",
+    "maintenanceWindow": "Saturday 22:00 to Sunday 04:00 Europe/London",
+    "freezeWindows": "Financial year end, 20 March to 5 April inclusive",
+    "notes": "Production landing zone for the Contoso datacentre exit. Zone redundancy and geo-redundant backup are contractual. Long-term retention reflects a seven-year statutory records obligation for manufacturing quality data."
+  },
+  "parameters": {
+    "customerCode": { "value": "ctso" },
+    "customerName": { "value": "Contoso Manufacturing Ltd" },
+    "environment": { "value": "prd" },
+    "workloadName": { "value": "mig" },
+    "location": { "value": "westeurope" },
+    "costCentre": { "value": "CC-41180" },
+    "ownerEmail": { "value": "azure.platform@contoso-manufacturing.example" },
+    "dataClassification": { "value": "Confidential" },
+    "additionalTags": {
+      "value": {
+        "Engagement": "ENG-2026-0114",
+        "MigrationWave": "wave-1-4",
+        "BusinessUnit": "Group IT",
+        "ServiceLevel": "Gold",
+        "DisasterRecoveryTier": "Tier-2",
+        "RegulatoryScope": "ISO-9001"
+      }
+    },
+
+    "changeRequestId": { "value": "CR-0030" },
+    "sourceRepository": { "value": "example-partner/alz-deployments" },
+
+    "virtualNetworkAddressPrefix": { "value": "10.10.0.0/16" },
+    "applicationSubnetPrefix": { "value": "10.10.1.0/24" },
+    "dataSubnetPrefix": { "value": "10.10.2.0/24" },
+    "sqlManagedInstanceSubnetPrefix": { "value": "10.10.3.0/24" },
+    "privateEndpointSubnetPrefix": { "value": "10.10.4.0/24" },
+    "deployBastionSubnet": { "value": true },
+    "bastionSubnetPrefix": { "value": "10.10.250.0/26" },
+    "customDnsServers": {
+      "value": [
+        "10.10.1.10",
+        "10.10.1.11"
+      ]
+    },
+    "hubVirtualNetworkResourceId": {
+      "value": "/subscriptions/9c4e7a15-2b83-4f60-a7d1-5e8b0c2f3a96/resourceGroups/rg-ctso-connectivity-prd-weu/providers/Microsoft.Network/virtualNetworks/vnet-ctso-hub-prd-weu-001"
+    },
+    "routeThroughHubAppliance": { "value": true },
+    "nextHopApplianceIpAddress": { "value": "10.0.1.4" },
+
+    "keyVaultName": { "value": "" },
+    "keyVaultSku": { "value": "premium" },
+    "deployKeyVaultPrivateEndpoint": { "value": true },
+    "keyVaultPrivateDnsZoneId": {
+      "value": "/subscriptions/9c4e7a15-2b83-4f60-a7d1-5e8b0c2f3a96/resourceGroups/rg-ctso-connectivity-prd-weu/providers/Microsoft.Network/privateDnsZones/privatelink.vaultcore.azure.net"
+    },
+    "platformAdministratorGroupObjectId": { "value": "7b41d9e0-5c38-4a17-92be-0d6f8c4a1573" },
+    "databaseAdministratorGroupObjectId": { "value": "2e97c4b1-6d05-48fa-b3c7-9a81e52d4068" },
+    "auditorGroupObjectId": { "value": "c3d85f16-9047-4b2e-81ad-4f60b9e7c258" },
+
+    "logRetentionInDays": { "value": 365 },
+    "dailyQuotaInGb": { "value": -1 },
+    "alertEmailAddress": { "value": "azure-operations@contoso-manufacturing.example" },
+    "backupStorageRedundancy": { "value": "GeoRedundant" },
+    "backupTimeZone": { "value": "W. Europe Standard Time" },
+    "backupScheduleTimeUtc": { "value": "2026-01-01T22:00:00Z" },
+    "dailyRetentionInDays": { "value": 35 },
+    "weeklyRetentionInWeeks": { "value": 12 },
+    "monthlyRetentionInMonths": { "value": 24 },
+    "yearlyRetentionInYears": { "value": 7 },
+    "deploySqlBackupPolicy": { "value": true },
+
+    "deployGovernance": { "value": true },
+    "allowedLocations": {
+      "value": [
+        "westeurope",
+        "northeurope"
+      ]
+    },
+    "policyEnforcementMode": { "value": "Default" },
+    "policyExcludedResourceGroupNames": { "value": [] },
+
+    "deploySqlManagedInstance": { "value": true },
+    "sqlManagedInstanceName": { "value": "sqlmi-ctso-mig-prd-weu" },
+    "sqlAdministratorLogin": { "value": "ctsomigadmin" },
+    "sqlAdministratorPassword": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/9c4e7a15-2b83-4f60-a7d1-5e8b0c2f3a96/resourceGroups/rg-ctso-bootstrap/providers/Microsoft.KeyVault/vaults/kv-ctso-bootstrap-prd"
+        },
+        "secretName": "sqlmi-admin-password-prd"
+      }
+    },
+    "sqlServiceTier": { "value": "BusinessCritical" },
+    "sqlSkuName": { "value": "BC_Gen5" },
+    "sqlVCores": { "value": 16 },
+    "sqlStorageSizeInGB": { "value": 1024 },
+    "sqlLicenseType": { "value": "BasePrice" },
+    "sqlCollation": { "value": "SQL_Latin1_General_CP1_CI_AS" },
+    "sqlTimezoneId": { "value": "W. Europe Standard Time" },
+    "sqlBackupStorageRedundancy": { "value": "Geo" },
+    "sqlZoneRedundant": { "value": true },
+    "sqlEntraAdministratorName": { "value": "sg-contoso-sqlmi-admins" },
+    "sqlEntraAdministratorObjectId": { "value": "2e97c4b1-6d05-48fa-b3c7-9a81e52d4068" },
+    "sqlEntraOnlyAuthentication": { "value": false },
+    "sqlShortTermRetentionInDays": { "value": 35 },
+    "sqlLongTermWeeklyRetention": { "value": "P12W" },
+    "sqlLongTermMonthlyRetention": { "value": "P24M" },
+    "sqlLongTermYearlyRetention": { "value": "P7Y" },
+    "sqlDatabases": {
+      "value": [
+        { "name": "ContosoERP" },
+        { "name": "ContosoMES" },
+        { "name": "ContosoQuality" },
+        { "name": "ContosoWarehouse" },
+        { "name": "ContosoReporting", "collation": "SQL_Latin1_General_CP1_CI_AS" }
+      ]
+    }
+  }
+}

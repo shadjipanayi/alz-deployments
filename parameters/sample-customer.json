@@ -1,0 +1,124 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "template": "../bicep/main.bicep",
+    "customer": "REPLACE - Customer legal or trading name",
+    "customerCode": "REPLACE - two to six lowercase characters, used in every resource name",
+    "environment": "REPLACE - Development, Test, User Acceptance or Production",
+    "engagement": "REPLACE - internal engagement reference, for example ENG-2026-0000",
+    "targetSubscriptionId": "REPLACE - target subscription GUID",
+    "owner": "Delivery Manager",
+    "reviewedBy": "REPLACE - names of the reviewers who approved this configuration",
+    "lastReviewed": "REPLACE - ISO date",
+    "changeRequest": "REPLACE - CR identifier authorising the onboarding",
+    "customerApproval": "REPLACE - customer change board reference and date, production only",
+    "maintenanceWindow": "REPLACE - agreed maintenance window, production only",
+    "freezeWindows": "REPLACE - customer change freeze periods, production only",
+    "onboardingChecklist": [
+      "1. Copy this file to parameters/<customer-code>-<env>.json",
+      "2. Complete every value marked REPLACE and delete every REPLACE marker",
+      "3. Confirm the IP address plan does not overlap the customer on-premises estate or the connectivity hub",
+      "4. Confirm the SQL Managed Instance subnet is at least a /24 and is not shared with any other resource",
+      "5. Confirm the source SQL Server collation and time zone and set sqlCollation and sqlTimezoneId to match",
+      "6. Create the bootstrap Key Vault and the sqlmi-admin-password secret before the first deployment",
+      "7. Obtain the Microsoft Entra group object identifiers from the customer identity team",
+      "8. Set retention values from the customer records retention obligation, not from a default",
+      "9. Run ./scripts/validate.ps1 until clean",
+      "10. Open a pull request using the customer onboarding template"
+    ],
+    "notes": "Annotated onboarding template. Every value below is either a required customer input or a deliberate engineering decision. Do not deploy this file as-is."
+  },
+  "parameters": {
+    "customerCode": { "value": "cust" },
+    "customerName": { "value": "REPLACE Customer Name Ltd" },
+    "environment": { "value": "dev" },
+    "workloadName": { "value": "mig" },
+    "location": { "value": "westeurope" },
+    "costCentre": { "value": "REPLACE-COST-CENTRE" },
+    "ownerEmail": { "value": "replace.owner@customer.example" },
+    "dataClassification": { "value": "Confidential" },
+    "additionalTags": {
+      "value": {
+        "Engagement": "ENG-0000-0000",
+        "MigrationWave": "wave-0",
+        "BusinessUnit": "REPLACE",
+        "ServiceLevel": "Bronze"
+      }
+    },
+
+    "changeRequestId": { "value": "CR-0000" },
+    "sourceRepository": { "value": "example-partner/alz-deployments" },
+
+    "virtualNetworkAddressPrefix": { "value": "10.100.0.0/16" },
+    "applicationSubnetPrefix": { "value": "10.100.1.0/24" },
+    "dataSubnetPrefix": { "value": "10.100.2.0/24" },
+    "sqlManagedInstanceSubnetPrefix": { "value": "10.100.3.0/24" },
+    "privateEndpointSubnetPrefix": { "value": "10.100.4.0/24" },
+    "deployBastionSubnet": { "value": true },
+    "bastionSubnetPrefix": { "value": "10.100.250.0/26" },
+    "customDnsServers": { "value": [] },
+    "hubVirtualNetworkResourceId": { "value": "" },
+    "routeThroughHubAppliance": { "value": false },
+    "nextHopApplianceIpAddress": { "value": "" },
+
+    "keyVaultName": { "value": "" },
+    "keyVaultSku": { "value": "standard" },
+    "deployKeyVaultPrivateEndpoint": { "value": true },
+    "keyVaultPrivateDnsZoneId": { "value": "" },
+    "platformAdministratorGroupObjectId": { "value": "" },
+    "databaseAdministratorGroupObjectId": { "value": "" },
+    "auditorGroupObjectId": { "value": "" },
+
+    "logRetentionInDays": { "value": 90 },
+    "dailyQuotaInGb": { "value": 5 },
+    "alertEmailAddress": { "value": "migration-alerts@partner.example" },
+    "backupStorageRedundancy": { "value": "GeoRedundant" },
+    "backupTimeZone": { "value": "UTC" },
+    "backupScheduleTimeUtc": { "value": "2026-01-01T22:00:00Z" },
+    "dailyRetentionInDays": { "value": 30 },
+    "weeklyRetentionInWeeks": { "value": 12 },
+    "monthlyRetentionInMonths": { "value": 12 },
+    "yearlyRetentionInYears": { "value": 3 },
+    "deploySqlBackupPolicy": { "value": true },
+
+    "deployGovernance": { "value": true },
+    "allowedLocations": {
+      "value": [
+        "westeurope",
+        "northeurope"
+      ]
+    },
+    "policyEnforcementMode": { "value": "Default" },
+    "policyExcludedResourceGroupNames": { "value": [] },
+
+    "deploySqlManagedInstance": { "value": false },
+    "sqlManagedInstanceName": { "value": "" },
+    "sqlAdministratorLogin": { "value": "custmigadmin" },
+    "sqlAdministratorPassword": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-cust-bootstrap/providers/Microsoft.KeyVault/vaults/kv-cust-bootstrap"
+        },
+        "secretName": "sqlmi-admin-password-dev"
+      }
+    },
+    "sqlServiceTier": { "value": "GeneralPurpose" },
+    "sqlSkuName": { "value": "GP_Gen5" },
+    "sqlVCores": { "value": 8 },
+    "sqlStorageSizeInGB": { "value": 256 },
+    "sqlLicenseType": { "value": "LicenseIncluded" },
+    "sqlCollation": { "value": "SQL_Latin1_General_CP1_CI_AS" },
+    "sqlTimezoneId": { "value": "UTC" },
+    "sqlBackupStorageRedundancy": { "value": "Geo" },
+    "sqlZoneRedundant": { "value": false },
+    "sqlEntraAdministratorName": { "value": "" },
+    "sqlEntraAdministratorObjectId": { "value": "" },
+    "sqlEntraOnlyAuthentication": { "value": false },
+    "sqlShortTermRetentionInDays": { "value": 14 },
+    "sqlLongTermWeeklyRetention": { "value": "P12W" },
+    "sqlLongTermMonthlyRetention": { "value": "P12M" },
+    "sqlLongTermYearlyRetention": { "value": "P3Y" },
+    "sqlDatabases": { "value": [] }
+  }
+}

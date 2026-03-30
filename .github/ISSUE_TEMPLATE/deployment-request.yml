@@ -1,0 +1,189 @@
+name: Deployment Request
+description: Request authorisation to execute a deployment into a customer environment from an already-merged, released change.
+title: "[DEPLOY] "
+labels:
+  - deployment-request
+  - awaiting-approval
+projects: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Deployment Request
+
+        Use this form to request execution of a deployment. The change itself must already be
+        merged to `main` and included in a tagged release — this form authorises **running** it
+        against a specific customer environment at a specific time.
+
+        This issue is a controlled audit artefact. It is exported as evidence for the Microsoft
+        Advanced Specialization audit, Control 3.1 Repeatable Deployment, and is the record that
+        links an approved change to a specific pipeline run.
+
+        For production, approval on this issue is in addition to — not instead of — the GitHub
+        Environment reviewer gate on `deploy-prod.yml`.
+
+  - type: input
+    id: change-request
+    attributes:
+      label: Change request
+      description: The approved change request this deployment implements.
+      placeholder: CR-0142
+    validations:
+      required: true
+
+  - type: input
+    id: pull-request
+    attributes:
+      label: Pull request
+      description: The merged pull request containing the change.
+      placeholder: "#87"
+    validations:
+      required: true
+
+  - type: input
+    id: release-tag
+    attributes:
+      label: Release tag to deploy
+      description: The tagged release being deployed. Production deployments must always reference a tag, never a branch.
+      placeholder: v1.4.0
+    validations:
+      required: true
+
+  - type: input
+    id: customer
+    attributes:
+      label: Customer
+      placeholder: Contoso Manufacturing Ltd (ctso)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Target environment
+      options:
+        - dev - Development
+        - tst - Test
+        - uat - User Acceptance
+        - prd - Production
+    validations:
+      required: true
+
+  - type: input
+    id: parameter-file
+    attributes:
+      label: Parameter file
+      description: Path to the parameter file that will be used. Must already be merged to main.
+      placeholder: parameters/customer-a-prod.json
+    validations:
+      required: true
+
+  - type: input
+    id: subscription
+    attributes:
+      label: Target subscription
+      description: Subscription name or identifier. Must match the targetSubscriptionId recorded in the parameter file metadata.
+    validations:
+      required: true
+
+  - type: input
+    id: window
+    attributes:
+      label: Requested deployment window
+      placeholder: Saturday 14 November 2026, 22:00 to 02:00 Europe/London
+    validations:
+      required: true
+
+  - type: dropdown
+    id: wave
+    attributes:
+      label: Is this deployment part of a migration wave cutover?
+      options:
+        - "No - infrastructure change only"
+        - "Yes - precedes a database cutover"
+        - "Yes - precedes a virtual machine cutover"
+        - "Yes - is the cutover"
+    validations:
+      required: true
+
+  - type: textarea
+    id: whatif
+    attributes:
+      label: What-if summary
+      description: |
+        Paste the summary from the what-if stage of the deployment workflow, or link to the workflow
+        run that produced it. Production deployments run what-if as a separate gated job before the
+        approval prompt; attach that output here.
+      render: text
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: readiness
+    attributes:
+      label: Pre-deployment readiness
+      options:
+        - label: The change is merged to main and included in the stated release tag
+          required: true
+        - label: The same release was deployed to a lower environment and verified
+          required: true
+        - label: scripts/post-deployment-checks.ps1 passed in the lower environment
+          required: true
+        - label: The window is inside the agreed customer maintenance window
+          required: true
+        - label: The window is outside every declared customer change freeze period
+          required: true
+        - label: The customer has been notified and has confirmed readiness
+          required: true
+        - label: A named engineer is available for the full window and for one hour afterwards
+          required: true
+        - label: The rollback plan in the change request is current and has been re-read
+          required: true
+
+  - type: textarea
+    id: rollback
+    attributes:
+      label: Rollback trigger criteria
+      description: The objective conditions under which rollback will be invoked, and who decides.
+      placeholder: |
+        Invoke rollback if any of the following is true at the 90-minute mark:
+        - the deployment has not reached the post-deployment check stage
+        - post-deployment checks report any Fail result
+        - application connectivity to the managed instance is not restored
+        Decision authority: Delivery Manager, in consultation with the Database Migration Lead.
+    validations:
+      required: true
+
+  - type: input
+    id: engineer
+    attributes:
+      label: Deploying engineer
+      description: The named individual who will initiate the pipeline run.
+    validations:
+      required: true
+
+  - type: input
+    id: approver
+    attributes:
+      label: Requested approver
+      description: The named individual who will approve the GitHub Environment gate. Must not be the deploying engineer.
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ### Post-deployment record — completed after execution
+
+        Record the outcome as a comment on this issue using the following format, then close it:
+
+        ```
+        Outcome: Successful / Rolled back / Partially successful
+        Workflow run: <url>
+        Azure correlation ID: <guid>
+        Started: 2026-11-14T22:04:00Z    Completed: 2026-11-14T23:11:00Z
+        Post-deployment checks: Pass
+        Customer sign-off: <name>, <date>
+        Deviations from plan: <none, or describe>
+        ```

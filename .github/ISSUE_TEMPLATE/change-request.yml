@@ -1,0 +1,210 @@
+name: Change Request
+description: Raise a formal change request (CR) authorising a change to Azure infrastructure, a template, a pipeline, or a customer configuration.
+title: "[CR] "
+labels:
+  - change-request
+  - awaiting-triage
+projects: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Change Request
+
+        Every change to a customer environment begins here. No branch may be created and no pull
+        request may be merged without an approved change request.
+
+        This issue is a controlled audit artefact. It is exported as evidence for the Microsoft
+        Advanced Specialization audit, Control 3.1 Repeatable Deployment. Complete every field
+        accurately — do not restate the title in the justification, and do not leave risk blank.
+
+        Read `docs/Change_Management.md` before completing this form.
+
+  - type: input
+    id: customer
+    attributes:
+      label: Customer
+      description: Customer name and code, or "Internal" for a change that affects the factory rather than a specific customer.
+      placeholder: Contoso Manufacturing Ltd (ctso)
+    validations:
+      required: true
+
+  - type: input
+    id: engagement
+    attributes:
+      label: Engagement reference
+      description: Internal engagement or contract reference.
+      placeholder: ENG-2026-0114
+    validations:
+      required: false
+
+  - type: dropdown
+    id: change-class
+    attributes:
+      label: Change class
+      description: |
+        Standard — pre-approved, low risk, fully automated, previously validated.
+        Normal — planned change with customer impact; requires change advisory board approval.
+        Major — breaking, wide blast radius, or production data affecting; requires synchronous CAB and customer change board approval.
+        Emergency — restores service or mitigates active security risk; use the Emergency Change path in docs/Change_Management.md.
+      options:
+        - Standard
+        - Normal
+        - Major
+        - Emergency
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environments
+    attributes:
+      label: Environments affected
+      multiple: true
+      options:
+        - dev - Development
+        - tst - Test
+        - uat - User Acceptance
+        - prd - Production
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: components
+    attributes:
+      label: Components affected
+      options:
+        - label: Bicep templates (bicep/)
+        - label: Customer parameter files (parameters/)
+        - label: GitHub Actions workflows (.github/workflows/)
+        - label: PowerShell scripts (scripts/)
+        - label: Azure Policy definitions or assignments
+        - label: Network topology, routing or firewall rules
+        - label: Identity, RBAC or Key Vault configuration
+        - label: SQL Managed Instance or database configuration
+        - label: Backup policy or retention
+        - label: Documentation only
+
+  - type: textarea
+    id: business-justification
+    attributes:
+      label: Business justification
+      description: Why this change is needed. State the business or technical outcome, not the implementation.
+      placeholder: |
+        Contoso wave 3 introduces the warehouse management database, which requires a fourth managed
+        database and an increase from 1024 GB to 2048 GB of instance storage. Without this change the
+        wave 3 cutover scheduled for 14 November cannot proceed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope of change
+      description: Precisely what will change. List the files, resources and settings.
+    validations:
+      required: true
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Explicitly out of scope
+      description: What this change deliberately does not do. Prevents scope creep during review.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk rating
+      options:
+        - Low
+        - Medium
+        - High
+    validations:
+      required: true
+
+  - type: textarea
+    id: risk-assessment
+    attributes:
+      label: Risk and impact assessment
+      description: What could go wrong, the blast radius if it does, and the mitigations in place.
+      placeholder: |
+        Risk: increasing instance storage triggers an online scaling operation on the managed instance.
+        Impact: a short failover of up to 30 seconds may occur, affecting the ERP and MES applications.
+        Mitigation: executed inside the agreed Saturday maintenance window; applications are stopped;
+        rollback is a storage reduction, which is also an online operation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: backout
+    attributes:
+      label: Backout plan
+      description: How the change is reversed, how long reversal takes, whether reversal risks data loss, and who decides to invoke it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: test-plan
+    attributes:
+      label: Test and validation plan
+      description: How the change is proven correct before and after deployment.
+      value: |
+        Pre-deployment:
+        - [ ] scripts/validate.ps1 clean
+        - [ ] what-if reviewed against the target environment
+        - [ ] deployed and verified in the development landing zone
+
+        Post-deployment:
+        - [ ] scripts/post-deployment-checks.ps1 passes
+        - [ ] application connectivity confirmed by the customer
+        - [ ] backup job completes successfully after the change
+    validations:
+      required: true
+
+  - type: input
+    id: window
+    attributes:
+      label: Requested implementation window
+      description: Date, time and time zone. Must fall inside the customer maintenance window and outside any freeze period.
+      placeholder: Saturday 14 November 2026, 22:00 to 02:00 Europe/London
+    validations:
+      required: true
+
+  - type: input
+    id: customer-approval
+    attributes:
+      label: Customer change board reference
+      description: Required for any change affecting a production environment. State "Not applicable" otherwise.
+      placeholder: CAB-2026-0418, approved 2026-04-18
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: declarations
+    attributes:
+      label: Requester declarations
+      options:
+        - label: I have confirmed this change does not fall inside a customer change freeze window
+          required: true
+        - label: I have confirmed no secret, credential or customer identifier will be committed to source control
+          required: true
+        - label: I have read docs/Change_Management.md and this change is correctly classified
+          required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ### Approval record — completed by the Change Advisory Board
+
+        Do not edit the section above after approval. Record the decision as a comment on this issue
+        using the following format, and apply the `cab-approved`, `cab-rejected` or `cab-deferred`
+        label:
+
+        ```
+        CAB decision: Approved
+        Date: 2026-11-05
+        Approvers: <name> (Principal Azure Architect), <name> (Delivery Manager)
+        Conditions: Deploy to test and soak for 48 hours before production.
+        ```

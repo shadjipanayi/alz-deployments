@@ -1,0 +1,39 @@
+# Build and tooling output
+*.json.tmp
+build/
+out/
+artifacts/
+.bicep-build/
+
+# Compiled ARM templates produced from Bicep during validation
+bicep/**/*.json
+!bicep/**/*.parameters.json
+
+# Local evidence and report output (evidence is published by the pipeline, never committed by hand)
+evidence-*.json
+*-whatif.txt
+*-postdeploy.json
+psrule-results.*
+
+# Secrets and local overrides - must never be committed
+*.env
+.env.*
+*.secret.*
+*.local.json
+parameters/*.local.json
+*.pfx
+*.pem
+*.key
+azureauth.json
+
+# PowerShell
+*.ps1.bak
+
+# Editor and OS
+.vs/
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

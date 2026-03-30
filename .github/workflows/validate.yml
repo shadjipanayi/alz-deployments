@@ -1,0 +1,407 @@
+#
+# Pull request validation gate
+#
+# Owner:           DevOps Engineer
+# Purpose:         The mandatory automated quality gate. Every pull request targeting main must
+#                  pass every job in this workflow before it is eligible for review approval and
+#                  merge. There is no route to a customer environment that bypasses this workflow.
+# Audit relevance: Primary evidence for Control 3.1 - deployments are validated and tested before
+#                  production, and the validation is automated, objective and consistently applied.
+#
+# Required status checks configured on the main branch protection rule:
+#   validate / Change request traceability
+#   validate / Build and lint templates
+#   validate / Secret and hard-coded value scan
+#   validate / Policy as code (PSRule for Azure)
+#   validate / Validate and preview (<each customer environment>)
+#
+
+name: validate
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'bicep/**'
+      - 'parameters/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
+      - 'bicepconfig.json'
+      - 'ps-rule.yaml'
+  workflow_dispatch:
+    inputs:
+      runPreview:
+        description: 'Run the Azure validation and what-if preview stage'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+concurrency:
+  group: validate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUILD_OUTPUT_DIR: build
+  EVIDENCE_DIR: evidence
+
+jobs:
+
+  # -----------------------------------------------------------------------------------------------
+  # Confirms the first link of the audit traceability chain exists: branch name and pull request
+  # body must both reference an approved change request.
+  # -----------------------------------------------------------------------------------------------
+  traceability:
+    name: Change request traceability
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify change request reference
+        shell: pwsh
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pattern = 'CR-\d{3,6}'
+          $failures = New-Object System.Collections.Generic.List[string]
+
+          if ($env:HEAD_REF) {
+              if ($env:HEAD_REF -notmatch $pattern) {
+                  $failures.Add("Branch name '$($env:HEAD_REF)' does not contain a change request reference matching $pattern.")
+              }
+              else {
+                  Write-Host "Branch references $($Matches[0])."
+              }
+          }
+          else {
+              Write-Host 'No head branch in context (manual run). Skipping branch name check.'
+          }
+
+          if ($env:PR_BODY) {
+              if ($env:PR_BODY -notmatch $pattern) {
+                  $failures.Add('The pull request body does not reference a change request. Complete section 1 of the pull request template.')
+              }
+              else {
+                  Write-Host "Pull request body references $($Matches[0])."
+              }
+          }
+
+          if ($failures.Count -gt 0) {
+              $failures | ForEach-Object { Write-Host "::error::$_" }
+              throw 'Change request traceability check failed. See CONTRIBUTING.md section 2.'
+          }
+
+          Write-Host 'Change request traceability confirmed.'
+
+  # -----------------------------------------------------------------------------------------------
+  # Compiles every template and enforces the Bicep linter ruleset defined in bicepconfig.json.
+  # The compiled templates are published as an artefact and reused by the policy-as-code job, so
+  # that every downstream check evaluates exactly the artefact that would be deployed.
+  # -----------------------------------------------------------------------------------------------
+  build:
+    name: Build and lint templates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Bicep
+        run: |
+          az bicep install
+          az bicep version
+
+      - name: Lint every template
+        run: |
+          set -euo pipefail
+          failed=0
+          for template in bicep/*.bicep; do
+            echo "::group::Lint ${template}"
+            if ! az bicep lint --file "${template}"; then
+              echo "::error file=${template}::Bicep lint reported an error."
+              failed=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "${failed}"
+
+      - name: Compile every template
+        run: |
+          set -euo pipefail
+          mkdir -p "${BUILD_OUTPUT_DIR}"
+          for template in bicep/*.bicep; do
+            echo "Compiling ${template}"
+            az bicep build --file "${template}" --outdir "${BUILD_OUTPUT_DIR}"
+          done
+          ls -l "${BUILD_OUTPUT_DIR}"
+
+      - name: Upload compiled templates
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiled-templates
+          path: ${{ env.BUILD_OUTPUT_DIR }}/
+          retention-days: 90
+
+  # -----------------------------------------------------------------------------------------------
+  # Blocks credentials and customer-identifying values from entering source control. Runs against
+  # the templates and workflows, where such values must never appear under any circumstances.
+  # -----------------------------------------------------------------------------------------------
+  scan:
+    name: Secret and hard-coded value scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run repository secret and convention scan
+        shell: pwsh
+        run: ./scripts/validate.ps1 -ScanOnly -FailOnWarning
+
+  # -----------------------------------------------------------------------------------------------
+  # Evaluates the compiled Azure Resource Manager templates against the Microsoft Well-Architected
+  # Framework and Azure security baseline rules published in PSRule for Azure. Rule selection and
+  # every exclusion are defined, justified and version controlled in ps-rule.yaml.
+  # -----------------------------------------------------------------------------------------------
+  psrule:
+    name: Policy as code (PSRule for Azure)
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download compiled templates
+        uses: actions/download-artifact@v4
+        with:
+          name: compiled-templates
+          path: ${{ env.BUILD_OUTPUT_DIR }}
+
+      - name: Analyse templates
+        uses: microsoft/ps-rule@v2.9.0
+        with:
+          modules: PSRule.Rules.Azure
+          inputPath: ${{ env.BUILD_OUTPUT_DIR }}/
+          outputFormat: Csv
+          outputPath: ${{ env.EVIDENCE_DIR }}/psrule-results.csv
+          summary: true
+
+      - name: Upload policy-as-code results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: psrule-results
+          path: ${{ env.EVIDENCE_DIR }}/
+          retention-days: 400
+          if-no-files-found: warn
+
+  # -----------------------------------------------------------------------------------------------
+  # Submits every customer configuration to Azure Resource Manager for validation and produces a
+  # what-if preview against the real target subscription. The preview is posted to the pull request
+  # so that reviewers approve a known change rather than an intention.
+  #
+  # The job is skipped cleanly when the federated identity variables are not configured, so that
+  # forks and first-run repositories do not report a spurious failure.
+  # -----------------------------------------------------------------------------------------------
+  preview:
+    name: Validate and preview (${{ matrix.label }})
+    runs-on: ubuntu-latest
+    needs:
+      - build
+      - scan
+    if: ${{ github.event_name == 'pull_request' || inputs.runPreview }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: customer-a-dev
+            parameterFile: parameters/customer-a-dev.json
+            subscriptionVar: AZURE_SUBSCRIPTION_ID_CUSTOMER_A_DEV
+          - label: customer-a-prod
+            parameterFile: parameters/customer-a-prod.json
+            subscriptionVar: AZURE_SUBSCRIPTION_ID_CUSTOMER_A_PROD
+          - label: customer-b-dev
+            parameterFile: parameters/customer-b-dev.json
+            subscriptionVar: AZURE_SUBSCRIPTION_ID_CUSTOMER_B_DEV
+          - label: customer-b-prod
+            parameterFile: parameters/customer-b-prod.json
+            subscriptionVar: AZURE_SUBSCRIPTION_ID_CUSTOMER_B_PROD
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Determine whether Azure preview can run
+        id: preflight
+        shell: bash
+        env:
+          SUBSCRIPTION_ID: ${{ vars[matrix.subscriptionVar] }}
+          CLIENT_ID: ${{ vars.AZURE_VALIDATION_CLIENT_ID }}
+          TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+        run: |
+          if [[ -n "${SUBSCRIPTION_ID}" && -n "${CLIENT_ID}" && -n "${TENANT_ID}" ]]; then
+            echo "enabled=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "enabled=false" >> "${GITHUB_OUTPUT}"
+            echo "::notice::Azure preview skipped for ${{ matrix.label }}: federated identity variables are not configured for this repository."
+          fi
+
+      - name: Sign in to Azure with federated credentials
+        if: steps.preflight.outputs.enabled == 'true'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_VALIDATION_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars[matrix.subscriptionVar] }}
+
+      - name: Validate deployment
+        if: steps.preflight.outputs.enabled == 'true'
+        run: |
+          set -euo pipefail
+          az deployment sub validate \
+            --name "validate-${{ matrix.label }}-${{ github.run_id }}" \
+            --location "$(jq -r '.parameters.location.value' '${{ matrix.parameterFile }}')" \
+            --subscription "${{ vars[matrix.subscriptionVar] }}" \
+            --template-file bicep/main.bicep \
+            --parameters "@${{ matrix.parameterFile }}" \
+            --parameters changeRequestId="${{ github.head_ref || github.ref_name }}" \
+                         sourceCommit="${{ github.sha }}" \
+                         deploymentId="pr-${{ github.run_id }}" \
+            --only-show-errors
+
+      - name: Preview changes (what-if)
+        if: steps.preflight.outputs.enabled == 'true'
+        id: whatif
+        run: |
+          set -euo pipefail
+          mkdir -p "${EVIDENCE_DIR}"
+          output_file="${EVIDENCE_DIR}/whatif-${{ matrix.label }}.txt"
+          az deployment sub what-if \
+            --name "whatif-${{ matrix.label }}-${{ github.run_id }}" \
+            --location "$(jq -r '.parameters.location.value' '${{ matrix.parameterFile }}')" \
+            --subscription "${{ vars[matrix.subscriptionVar] }}" \
+            --template-file bicep/main.bicep \
+            --parameters "@${{ matrix.parameterFile }}" \
+            --parameters changeRequestId="${{ github.head_ref || github.ref_name }}" \
+                         sourceCommit="${{ github.sha }}" \
+                         deploymentId="pr-${{ github.run_id }}" \
+            --no-pretty-print \
+            --only-show-errors > "${output_file}.json"
+
+          python3 - "${output_file}.json" "${output_file}" <<'PY'
+          import json, sys
+
+          source, target = sys.argv[1], sys.argv[2]
+          with open(source, encoding='utf-8') as handle:
+              payload = json.load(handle)
+
+          changes = payload.get('changes', [])
+          counts = {}
+          lines = []
+          for change in changes:
+              kind = change.get('changeType', 'Unknown')
+              counts[kind] = counts.get(kind, 0) + 1
+              lines.append('{0:<12} {1}'.format(kind, change.get('resourceId', '')))
+
+          with open(target, 'w', encoding='utf-8') as handle:
+              handle.write('Change summary\n')
+              for kind in sorted(counts):
+                  handle.write('  {0}: {1}\n'.format(kind, counts[kind]))
+              handle.write('\nResources\n')
+              handle.write('\n'.join(lines) if lines else '  No changes detected.')
+              handle.write('\n')
+
+          summary = ', '.join('{0}={1}'.format(k, v) for k, v in sorted(counts.items())) or 'no changes'
+          print('::notice::What-if summary for {0}: {1}'.format(target, summary))
+          if counts.get('Delete', 0) > 0:
+              print('::warning::This change deletes resources. Justify every delete in section 4 of the pull request template.')
+          PY
+
+          cat "${output_file}"
+
+      - name: Publish what-if preview to the pull request
+        if: steps.preflight.outputs.enabled == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = `${process.env.EVIDENCE_DIR}/whatif-${{ matrix.label }}.txt`;
+            let body;
+            if (fs.existsSync(path)) {
+              let content = fs.readFileSync(path, 'utf8');
+              if (content.length > 55000) {
+                content = content.slice(0, 55000) + '\n... truncated. Download the whatif-preview artefact for the full output.';
+              }
+              body = [
+                `### What-if preview — \`${{ matrix.label }}\``,
+                '',
+                `Template: \`bicep/main.bicep\` · Parameters: \`${{ matrix.parameterFile }}\``,
+                `Commit: \`${{ github.sha }}\` · Run: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`,
+                '',
+                '<details><summary>Show preview</summary>',
+                '',
+                '```text',
+                content,
+                '```',
+                '',
+                '</details>',
+                '',
+                '> Reviewers: confirm this matches the intent stated in section 4 of the pull request template.'
+              ].join('\n');
+            } else {
+              body = `### What-if preview — \`${{ matrix.label }}\`\n\nNo preview was produced.`;
+            }
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
+      - name: Upload what-if preview evidence
+        if: always() && steps.preflight.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: whatif-preview-${{ matrix.label }}
+          path: ${{ env.EVIDENCE_DIR }}/
+          retention-days: 400
+          if-no-files-found: warn
+
+  # -----------------------------------------------------------------------------------------------
+  # Single required check that reviewers and branch protection can depend on. Fails if any upstream
+  # job failed, so that a new job added above is automatically covered by branch protection.
+  # -----------------------------------------------------------------------------------------------
+  gate:
+    name: Validation gate
+    runs-on: ubuntu-latest
+    needs:
+      - traceability
+      - build
+      - scan
+      - psrule
+      - preview
+    if: always()
+    steps:
+      - name: Evaluate upstream results
+        shell: pwsh
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $needs = $env:RESULTS | ConvertFrom-Json
+          $failed = @()
+          foreach ($property in $needs.PSObject.Properties) {
+              $result = $property.Value.result
+              Write-Host ("{0,-16} {1}" -f $property.Name, $result)
+              if ($result -notin @('success', 'skipped')) {
+                  $failed += $property.Name
+              }
+          }
+          if ($failed.Count -gt 0) {
+              throw "Validation gate failed. Failing jobs: $($failed -join ', ')."
+          }
+          Write-Host 'Validation gate passed. This pull request is eligible for review approval.'

@@ -1,0 +1,277 @@
+#
+# Non-production deployment
+#
+# Owner:           DevOps Engineer
+# Purpose:         Deploys a merged, validated change into a customer development landing zone.
+#                  Development is where every change is proven before it is eligible for a release
+#                  tag and a production deployment request.
+# Audit relevance: Evidence for Control 3.1 - the same template and the same pipeline deploy every
+#                  environment; only the parameter file differs. Produces a deployment evidence
+#                  record containing the change request, commit, run identifier, Azure correlation
+#                  identifier and post-deployment verification result.
+#
+# Required repository configuration:
+#   Variables: AZURE_TENANT_ID
+#              AZURE_DEV_CLIENT_ID
+#              AZURE_SUBSCRIPTION_ID_CUSTOMER_A_DEV
+#              AZURE_SUBSCRIPTION_ID_CUSTOMER_B_DEV
+#   Environment: development
+#
+
+name: deploy-dev
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'bicep/**'
+      - 'parameters/*-dev.json'
+  workflow_dispatch:
+    inputs:
+      customer:
+        description: 'Customer to deploy'
+        type: choice
+        required: true
+        default: all
+        options:
+          - all
+          - customer-a
+          - customer-b
+      changeRequestId:
+        description: 'Approved change request identifier, for example CR-0142'
+        type: string
+        required: true
+      whatIfOnly:
+        description: 'Preview only - do not deploy'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+
+  prepare:
+    name: Resolve deployment set
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.resolve.outputs.matrix }}
+      changeRequestId: ${{ steps.resolve.outputs.changeRequestId }}
+      count: ${{ steps.resolve.outputs.count }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Resolve target configurations
+        id: resolve
+        shell: pwsh
+        env:
+          SELECTION: ${{ inputs.customer }}
+          INPUT_CR: ${{ inputs.changeRequestId }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $configurations = @(
+              [ordered]@{
+                  label           = 'customer-a-dev'
+                  customer        = 'customer-a'
+                  customerName    = 'Contoso Manufacturing Ltd'
+                  parameterFile   = 'parameters/customer-a-dev.json'
+                  subscriptionVar = 'AZURE_SUBSCRIPTION_ID_CUSTOMER_A_DEV'
+              }
+              [ordered]@{
+                  label           = 'customer-b-dev'
+                  customer        = 'customer-b'
+                  customerName    = 'Northwind Financial Services plc'
+                  parameterFile   = 'parameters/customer-b-dev.json'
+                  subscriptionVar = 'AZURE_SUBSCRIPTION_ID_CUSTOMER_B_DEV'
+              }
+          )
+
+          $selection = $env:SELECTION
+          if ([string]::IsNullOrWhiteSpace($selection) -or $selection -eq 'all') {
+              $selected = $configurations
+          }
+          else {
+              $selected = @($configurations | Where-Object { $_.customer -eq $selection })
+          }
+
+          if ($selected.Count -eq 0) {
+              throw "No configuration matched the requested customer '$selection'."
+          }
+
+          # The change request is supplied explicitly on a manual run, or extracted from the squash
+          # merge commit trailer on an automatic run. A deployment without a change request is not
+          # permitted - see docs/Change_Management.md.
+          $changeRequest = $env:INPUT_CR
+          if ([string]::IsNullOrWhiteSpace($changeRequest)) {
+              if ($env:COMMIT_MESSAGE -match 'CR-\d{3,6}') {
+                  $changeRequest = $Matches[0]
+              }
+          }
+          if ([string]::IsNullOrWhiteSpace($changeRequest)) {
+              throw 'No change request identifier was supplied and none could be extracted from the merge commit. Add a "CR: CR-####" trailer to the commit, or run this workflow manually and supply the identifier.'
+          }
+
+          $includeJson = ConvertTo-Json -InputObject $selected -Depth 5 -AsArray -Compress
+          "matrix={""include"":$includeJson}" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "changeRequestId=$changeRequest" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "count=$($selected.Count)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+          Write-Host "Change request: $changeRequest"
+          Write-Host "Configurations selected: $($selected.label -join ', ')"
+
+  deploy:
+    name: Deploy ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    needs: prepare
+    environment: development
+    concurrency:
+      group: deploy-${{ matrix.label }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    env:
+      CHANGE_REQUEST_ID: ${{ needs.prepare.outputs.changeRequestId }}
+      DEPLOYMENT_NAME: mig-${{ matrix.label }}-${{ github.run_number }}
+      EVIDENCE_DIR: evidence
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Resolve deployment location
+        id: config
+        shell: bash
+        run: |
+          set -euo pipefail
+          location="$(jq -r '.parameters.location.value' '${{ matrix.parameterFile }}')"
+          echo "location=${location}" >> "${GITHUB_OUTPUT}"
+          echo "Deployment region: ${location}"
+
+      - name: Sign in to Azure with federated credentials
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_DEV_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars[matrix.subscriptionVar] }}
+
+      - name: Preview changes (what-if)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${EVIDENCE_DIR}"
+          az deployment sub what-if \
+            --name "${DEPLOYMENT_NAME}" \
+            --location "${{ steps.config.outputs.location }}" \
+            --subscription "${{ vars[matrix.subscriptionVar] }}" \
+            --template-file bicep/main.bicep \
+            --parameters "@${{ matrix.parameterFile }}" \
+            --parameters changeRequestId="${CHANGE_REQUEST_ID}" \
+                         sourceCommit="${GITHUB_SHA::7}" \
+                         deploymentId="${{ github.run_id }}" \
+            --only-show-errors | tee "${EVIDENCE_DIR}/whatif-${{ matrix.label }}.txt"
+
+      - name: Deploy
+        id: deploy
+        if: ${{ inputs.whatIfOnly != true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          az deployment sub create \
+            --name "${DEPLOYMENT_NAME}" \
+            --location "${{ steps.config.outputs.location }}" \
+            --subscription "${{ vars[matrix.subscriptionVar] }}" \
+            --template-file bicep/main.bicep \
+            --parameters "@${{ matrix.parameterFile }}" \
+            --parameters changeRequestId="${CHANGE_REQUEST_ID}" \
+                         sourceCommit="${GITHUB_SHA::7}" \
+                         deploymentId="${{ github.run_id }}" \
+            --only-show-errors \
+            --output json > "${EVIDENCE_DIR}/deployment-${{ matrix.label }}.json"
+
+          correlation_id="$(jq -r '.properties.correlationId' "${EVIDENCE_DIR}/deployment-${{ matrix.label }}.json")"
+          provisioning_state="$(jq -r '.properties.provisioningState' "${EVIDENCE_DIR}/deployment-${{ matrix.label }}.json")"
+          echo "correlationId=${correlation_id}" >> "${GITHUB_OUTPUT}"
+          echo "provisioningState=${provisioning_state}" >> "${GITHUB_OUTPUT}"
+          echo "Azure correlation ID: ${correlation_id}"
+          echo "Provisioning state:   ${provisioning_state}"
+
+      - name: Capture deployment failure detail
+        if: failure() && steps.deploy.outcome == 'failure'
+        shell: bash
+        run: |
+          mkdir -p "${EVIDENCE_DIR}"
+          az deployment operation sub list \
+            --name "${DEPLOYMENT_NAME}" \
+            --subscription "${{ vars[matrix.subscriptionVar] }}" \
+            --query "[?properties.provisioningState=='Failed'].{resource:properties.targetResource.resourceName, type:properties.targetResource.resourceType, code:properties.statusMessage.error.code, message:properties.statusMessage.error.message}" \
+            --output json > "${EVIDENCE_DIR}/failure-${{ matrix.label }}.json" || true
+          cat "${EVIDENCE_DIR}/failure-${{ matrix.label }}.json" || true
+
+      - name: Verify deployment
+        id: verify
+        if: ${{ inputs.whatIfOnly != true && steps.deploy.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          ./scripts/post-deployment-checks.ps1 `
+            -ParameterFile '${{ matrix.parameterFile }}' `
+            -SubscriptionId '${{ vars[matrix.subscriptionVar] }}' `
+            -OutputPath "$env:EVIDENCE_DIR/postdeploy-${{ matrix.label }}.json"
+
+      - name: Write deployment evidence record
+        if: always()
+        shell: pwsh
+        env:
+          CORRELATION_ID: ${{ steps.deploy.outputs.correlationId }}
+          PROVISIONING_STATE: ${{ steps.deploy.outputs.provisioningState }}
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path $env:EVIDENCE_DIR | Out-Null
+          $record = [ordered]@{
+              evidenceType        = 'DeploymentRecord'
+              control             = '3.1 Repeatable Deployment'
+              customer            = '${{ matrix.customerName }}'
+              configuration       = '${{ matrix.label }}'
+              environment         = 'development'
+              changeRequestId     = $env:CHANGE_REQUEST_ID
+              repository          = '${{ github.repository }}'
+              gitRef              = '${{ github.ref }}'
+              commitSha           = '${{ github.sha }}'
+              workflow            = '${{ github.workflow }}'
+              workflowRunId       = '${{ github.run_id }}'
+              workflowRunUrl      = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+              initiatedBy         = '${{ github.actor }}'
+              templateFile        = 'bicep/main.bicep'
+              parameterFile       = '${{ matrix.parameterFile }}'
+              subscriptionId      = '${{ vars[matrix.subscriptionVar] }}'
+              deploymentName      = $env:DEPLOYMENT_NAME
+              azureCorrelationId  = $env:CORRELATION_ID
+              provisioningState   = $env:PROVISIONING_STATE
+              postDeploymentCheck = $env:VERIFY_OUTCOME
+              whatIfOnly          = '${{ inputs.whatIfOnly }}'
+              recordedUtc         = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+          }
+          $path = Join-Path $env:EVIDENCE_DIR "deployment-record-${{ matrix.label }}.json"
+          $record | ConvertTo-Json -Depth 5 | Set-Content -Path $path -Encoding utf8
+          Get-Content $path
+
+          "## Deployment record - ${{ matrix.label }}" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "| Field | Value |"  | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "|---|---|"          | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          foreach ($entry in $record.GetEnumerator()) {
+              "| $($entry.Key) | $($entry.Value) |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          }
+
+      - name: Publish deployment evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-evidence-dev-${{ matrix.label }}-${{ github.run_number }}
+          path: ${{ env.EVIDENCE_DIR }}/
+          retention-days: 400
+          if-no-files-found: warn

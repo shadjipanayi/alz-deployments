@@ -1,0 +1,77 @@
+#
+# PSRule for Azure configuration
+#
+# Owner:          Cloud Security Lead
+# Purpose:        Policy-as-code quality gate executed by .github/workflows/validate.yml and
+#                 scripts/validate.ps1. Enforces Microsoft Well-Architected Framework and Azure
+#                 security baseline rules against every compiled template and parameter file.
+# Audit relevance: Demonstrates that an automated, objective quality standard is applied to every
+#                 change before it is eligible for deployment (Control 3.1 - validation).
+# Review cadence: Quarterly, and whenever a rule exclusion is added.
+#
+
+# Only evaluate the Azure rule module. Rules are sourced from PSRule.Rules.Azure.
+include:
+  module:
+    - PSRule.Rules.Azure
+
+# Fail the pipeline on rule failures; errors in a single file must not silently pass.
+execution:
+  unprocessedObject: Ignore
+  ruleSuppressed: Warn
+  invariantCulture: Ignore
+
+input:
+  pathIgnore:
+    - '*.md'
+    - 'docs/'
+    - 'examples/'
+    - 'scripts/'
+    - '.github/'
+    - 'parameters/'
+
+output:
+  culture:
+    - 'en-GB'
+
+configuration:
+  # PSRule is executed against the Azure Resource Manager templates compiled from bicep/ by the
+  # build stage of .github/workflows/validate.yml. Source expansion is therefore disabled: the
+  # artefact under test is exactly the artefact that will be deployed.
+  #
+  # Resource-instance security properties that depend on customer parameter values (for example
+  # public endpoint state, allowed regions, provenance tags) are enforced at runtime by the Azure
+  # Policy initiative in bicep/governance.bicep and verified after deployment by
+  # scripts/post-deployment-checks.ps1. The three controls are complementary, not duplicated.
+  AZURE_BICEP_FILE_EXPANSION: false
+  AZURE_BICEP_PARAMS_FILE_EXPANSION: false
+  AZURE_PARAMETER_FILE_EXPANSION: false
+
+  # Region allow-list used by rules that verify resource placement. Mirrors the allowed-locations
+  # policy deployed by bicep/governance.bicep.
+  AZURE_RESOURCE_ALLOWED_LOCATIONS:
+    - 'westeurope'
+    - 'northeurope'
+    - 'uksouth'
+    - 'ukwest'
+    - 'swedencentral'
+    - 'germanywestcentral'
+
+rule:
+  exclude:
+    # ---------------------------------------------------------------------------------------------
+    # Every exclusion below is a documented, reviewed engineering decision, not a convenience.
+    # Adding an exclusion requires Cloud Security Lead approval on the pull request.
+    # ---------------------------------------------------------------------------------------------
+
+    # Azure.Resource.UseTags - superseded by the stricter mandatory tag schema enforced by the
+    # custom deny policy in bicep/governance.bicep and verified by post-deployment-checks.ps1.
+    - Azure.Resource.UseTags
+
+    # Azure.Template.UseDescriptions - this repository enforces @description on every parameter via
+    # code review and scripts/validate.ps1; the rule also flags variables, which is not our standard.
+    - Azure.Template.UseDescriptions
+
+    # Azure.Deployment.OutputSecretValue - no template in this repository outputs a secret. The rule
+    # produces false positives on Key Vault resource identifier outputs, which are not secrets.
+    - Azure.Deployment.OutputSecretValue

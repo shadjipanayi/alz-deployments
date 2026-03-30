@@ -1,0 +1,65 @@
+# CODEOWNERS
+#
+# Owner:           Governance and Compliance Manager
+# Purpose:         Enforces mandatory subject-matter review on every pull request. Combined with
+#                  the "Require review from Code Owners" branch protection rule on main, this file
+#                  is the mechanical control that makes peer review non-optional.
+# Audit relevance: Primary evidence for Control 3.1 - changes are peer reviewed and approved by a
+#                  competent reviewer before deployment.
+# Review cadence:  Quarterly, and whenever team membership changes.
+#
+# Rules are evaluated last-match-wins. Keep the most specific paths at the bottom.
+
+# -------------------------------------------------------------------------------------------------
+# Default owner for anything not matched below
+# -------------------------------------------------------------------------------------------------
+*                                   @example-partner/cloud-platform
+
+# -------------------------------------------------------------------------------------------------
+# Infrastructure as Code
+# -------------------------------------------------------------------------------------------------
+/bicep/                             @example-partner/platform-engineering @example-partner/architects
+/bicep/networking.bicep             @example-partner/platform-engineering @example-partner/architects @example-partner/cloud-security
+/bicep/identity.bicep               @example-partner/cloud-security @example-partner/architects
+/bicep/governance.bicep             @example-partner/cloud-security @example-partner/governance
+/bicep/sql-managed-instance.bicep   @example-partner/data-migration @example-partner/architects
+/bicep/monitoring.bicep             @example-partner/platform-engineering
+/bicepconfig.json                   @example-partner/platform-engineering
+
+# -------------------------------------------------------------------------------------------------
+# Customer configuration
+# Production parameter files additionally require Delivery Manager sign-off, because they carry the
+# customer change board reference and the agreed maintenance window.
+# -------------------------------------------------------------------------------------------------
+/parameters/                        @example-partner/delivery @example-partner/platform-engineering
+/parameters/*-prod.json             @example-partner/delivery @example-partner/architects @example-partner/cloud-security
+
+# -------------------------------------------------------------------------------------------------
+# Pipelines, quality gates and automation
+# -------------------------------------------------------------------------------------------------
+/.github/workflows/                 @example-partner/devops @example-partner/platform-engineering
+/.github/actions/                   @example-partner/devops
+/scripts/                           @example-partner/devops @example-partner/platform-engineering
+/ps-rule.yaml                       @example-partner/cloud-security
+
+# -------------------------------------------------------------------------------------------------
+# Governance artefacts - changing these changes the control environment itself
+# -------------------------------------------------------------------------------------------------
+/.github/CODEOWNERS                 @example-partner/governance
+/.github/pull_request_template.md   @example-partner/governance
+/.github/ISSUE_TEMPLATE/            @example-partner/governance
+/CONTRIBUTING.md                    @example-partner/governance
+/SECURITY.md                        @example-partner/cloud-security
+/CHANGELOG.md                       @example-partner/delivery
+
+# -------------------------------------------------------------------------------------------------
+# Documentation
+# -------------------------------------------------------------------------------------------------
+/docs/                              @example-partner/documentation
+/docs/Deployment_Methodology.md     @example-partner/architects @example-partner/governance
+/docs/Architecture.md               @example-partner/architects
+/docs/Naming_Standards.md           @example-partner/platform-engineering
+/docs/Change_Management.md          @example-partner/governance @example-partner/delivery
+/docs/Audit_Evidence_Guide.md       @example-partner/governance @example-partner/audit
+/examples/                          @example-partner/delivery @example-partner/architects
+/README.md                          @example-partner/architects

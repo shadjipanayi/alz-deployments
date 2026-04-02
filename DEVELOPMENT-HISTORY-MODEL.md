@@ -20,7 +20,7 @@
 >
 > **Section 10 sets out how to convert this model into authentic evidence.**
 >
-> **Owner:** Senior DevOps Engineer · **Last reviewed:** 2026-09-28 · **Document version:** 1.0.0
+> **Owner:** Senior DevOps Engineer · **Last reviewed:** 2026-03-30 · **Document version:** 1.0.0
 
 ---
 
@@ -1323,4 +1323,4 @@ falsified evidence is a partner integrity matter with consequences well beyond t
 
 | Date | Version | Author | Summary |
 |---|---|---|---|
-| 2026-09-28 | 1.0.0 | Senior DevOps Engineer | Initial development history model, clearly marked as a planning artefact rather than a record |
+| 2026-03-30 | 1.0.0 | Senior DevOps Engineer | Initial development history model, clearly marked as a planning artefact rather than a record |

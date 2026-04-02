@@ -3,7 +3,7 @@
 **Owner:** Platform Engineering Lead
 **Applies to:** `alz-deployments` v1.0.0 and later
 **Enforced by:** `bicep/main.bicep` (name construction), `bicep/governance.bicep` (tag deny policy), `scripts/validate.ps1` (convention scan), `scripts/post-deployment-checks.ps1` (verification)
-**Last reviewed:** 2026-09-28 · **Review cadence:** Quarterly
+**Last reviewed:** 2026-03-29 · **Review cadence:** Quarterly
 
 ---
 
@@ -275,4 +275,4 @@ Adding a new resource type abbreviation, a new region abbreviation or a new opti
 
 | Date | Version | Author | Summary |
 |---|---|---|---|
-| 2026-09-28 | 1.0.0 | Platform Engineering Lead | Initial naming and tagging standard for the audit baseline |
+| 2026-03-29 | 1.0.0 | Platform Engineering Lead | Initial naming and tagging standard for the audit baseline |

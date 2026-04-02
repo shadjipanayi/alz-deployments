@@ -11,7 +11,7 @@
 | **Repository owner** | Cloud Platform Engineering |
 | **Document owner** | Principal Azure Architect |
 | **Current release** | `v1.3.1` |
-| **Last reviewed** | 2026-09-28 |
+| **Last reviewed** | 2026-03-28 |
 
 ---
 
@@ -336,4 +336,4 @@ Report suspected vulnerabilities per [SECURITY.md](SECURITY.md). Do not open a p
 
 | Date | Version | Author | Summary |
 |---|---|---|---|
-| 2026-09-28 | 1.0.0 | Principal Azure Architect | Initial audit-ready baseline for Control 3.1 |
+| 2026-03-28 | 1.0.0 | Principal Azure Architect | Initial audit-ready baseline for Control 3.1 |

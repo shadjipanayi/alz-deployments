@@ -5,7 +5,7 @@
 **Co-owner:** Audit Evidence Owner
 **Specialization:** Infrastructure and Database Migration to Microsoft Azure
 **Control:** **3.1 Repeatable Deployment**
-**Last reviewed:** 2026-09-28 · **Review cadence:** Quarterly, and before every audit
+**Last reviewed:** 2026-03-28 · **Review cadence:** Quarterly, and before every audit
 
 ---
 
@@ -293,4 +293,4 @@ the mapping in section 3 is current.
 
 | Date | Version | Author | Summary |
 |---|---|---|---|
-| 2026-09-28 | 1.0.0 | Governance and Compliance Manager | Initial audit evidence guide for Control 3.1 |
+| 2026-03-28 | 1.0.0 | Governance and Compliance Manager | Initial audit evidence guide for Control 3.1 |

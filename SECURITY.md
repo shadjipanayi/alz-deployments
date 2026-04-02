@@ -1,6 +1,6 @@
 # Security Policy
 
-**Owner:** Cloud Security Lead · **Last reviewed:** 2026-09-28 · **Review cadence:** Quarterly
+**Owner:** Cloud Security Lead · **Last reviewed:** 2026-03-30 · **Review cadence:** Quarterly
 
 ---
 
@@ -99,4 +99,4 @@ No long-lived client secrets or certificates are issued to any of these principa
 
 | Date | Version | Author | Summary |
 |---|---|---|---|
-| 2026-09-28 | 1.0.0 | Cloud Security Lead | Initial security policy for the audit baseline |
+| 2026-03-30 | 1.0.0 | Cloud Security Lead | Initial security policy for the audit baseline |

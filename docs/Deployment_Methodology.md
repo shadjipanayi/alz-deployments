@@ -4,7 +4,7 @@
 **Contributors:** Platform Engineering Lead, Database Migration Lead, Delivery Manager
 **Applies to:** `alz-deployments` v1.0.0 and later
 **Related controls:** Microsoft Advanced Specialization — Infrastructure and Database Migration to Microsoft Azure, **Control 3.1 Repeatable Deployment**
-**Last reviewed:** 2026-09-28 · **Review cadence:** Quarterly, and after every post-implementation review
+**Last reviewed:** 2026-03-29 · **Review cadence:** Quarterly, and after every post-implementation review
 
 ---
 
@@ -395,4 +395,4 @@ Reported monthly by the Delivery Manager and retained as evidence of process mat
 
 | Date | Version | Author | Summary |
 |---|---|---|---|
-| 2026-09-28 | 1.0.0 | Principal Azure Architect | Initial methodology of record for the audit baseline |
+| 2026-03-29 | 1.0.0 | Principal Azure Architect | Initial methodology of record for the audit baseline |

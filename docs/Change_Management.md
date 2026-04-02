@@ -3,7 +3,7 @@
 **Owner:** Governance and Compliance Manager
 **Co-owner:** Delivery Manager
 **Applies to:** `alz-deployments` v1.0.0 and later — every change to every customer environment
-**Last reviewed:** 2026-09-28 · **Review cadence:** Semi-annually, and after every post-implementation review
+**Last reviewed:** 2026-03-29 · **Review cadence:** Semi-annually, and after every post-implementation review
 
 ---
 
@@ -492,4 +492,4 @@ CR-0142  (Change Request issue: risk, backout plan, CAB approval, window)
 
 | Date | Version | Author | Summary |
 |---|---|---|---|
-| 2026-09-28 | 1.0.0 | Governance and Compliance Manager | Initial change management framework for the audit baseline |
+| 2026-03-29 | 1.0.0 | Governance and Compliance Manager | Initial change management framework for the audit baseline |

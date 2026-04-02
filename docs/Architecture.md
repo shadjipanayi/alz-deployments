@@ -3,7 +3,7 @@
 **Owner:** Principal Azure Architect
 **Contributors:** Platform Engineering Lead, Database Migration Lead, Cloud Security Lead
 **Applies to:** `alz-deployments` v1.0.0 and later
-**Last reviewed:** 2026-09-28 · **Review cadence:** Quarterly
+**Last reviewed:** 2026-03-28 · **Review cadence:** Quarterly
 
 ---
 
@@ -359,4 +359,4 @@ flowchart TD
 
 | Date | Version | Author | Summary |
 |---|---|---|---|
-| 2026-09-28 | 1.0.0 | Principal Azure Architect | Initial architecture of record for the audit baseline |
+| 2026-03-28 | 1.0.0 | Principal Azure Architect | Initial architecture of record for the audit baseline |

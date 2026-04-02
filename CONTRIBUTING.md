@@ -172,4 +172,4 @@ These are auditable non-conformances:
 
 | Date | Version | Author | Summary |
 |---|---|---|---|
-| 2026-09-28 | 1.0.0 | Governance and Compliance Manager | Initial contribution control for the audit baseline |
+| 2026-03-30 | 1.0.0 | Governance and Compliance Manager | Initial contribution control for the audit baseline |
